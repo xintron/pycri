@@ -1,0 +1,10 @@
+# -*- coding: utf-8 -*-
+
+# bot nickname
+NICKNAME = 'pycri'
+REALNAME = 'pycri IRC bot'
+
+# Network settings
+NETWORK_ADDR = 'example.com'
+NETWORK_PORT = 6667
+NETWORK_USE_SSL = False
