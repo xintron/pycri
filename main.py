@@ -58,6 +58,15 @@ socket.setdefaulttimeout(15)
 if __name__ == '__main__':
     factory = IRCBotFactory(sys.argv[1], '!')
 
+    # Connect to the database
+    if settings.DB_NAME:
+        try:
+            from mongoengine import connect
+            connect(settings.DB_NAME)
+        except:
+            print 'Could not import mongoengine. Are you sure that mongoeninge (as well as pymongo) is installed and included in your python-path?'
+
+
     if settings.NETWORK_USE_SSL:
         from twisted.internet import ssl
         reactor.connectSSL(settings.NETWORK_ADDR, settings.NETWORK_PORT, factory, ssl.ClientContextFactory())

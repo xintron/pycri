@@ -8,3 +8,6 @@ REALNAME = 'pycri IRC bot'
 NETWORK_ADDR = 'example.com'
 NETWORK_PORT = 6667
 NETWORK_USE_SSL = False
+
+# Database settings
+DB_NAME = '' # Leave empty if not using the database (mongodb which requires mongoengine and pymongo)
