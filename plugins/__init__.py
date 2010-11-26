@@ -1,1 +1,1 @@
-__all__ = ['load_module']
+__all__ = ['load_plugin']
