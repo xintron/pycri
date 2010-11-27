@@ -2,6 +2,7 @@ import datetime, re
 from mongoengine import *
 
 from utils import base
+from utils.timesince import timesince
 
 class URLLogModel(Document):
 
@@ -39,12 +40,7 @@ class URLLog(base.Plugin):
                 u.last_post = datetime.datetime.now()
 
                 if u.counter > 0:
-                    irc.msg(channel, '.OLD {}. This url has been posted before on {} by {} (Times posted: {})'.format(
-                        user,
-                        '{} {} {} at {}:{}'.format(u.first_post.day, u.first_post.strftime('%b'), u.first_post.year, u.first_post.hour, u.first_post.minute),
-                        u.first_nick,
-                        u.counter
-                    ))
+                    irc.msg(channel, '.OLD! This url was first posted {} ago by {} (Times posted: {})'.format(timesince(u.first_post), u.first_nick, u.counter))
 
                 u.counter += 1
 

@@ -4,7 +4,7 @@ import sys, os
 from copy import copy
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, threads
 
 from utils.plugin_handler import new_plugins, main_plugin
 from utils.base import _map as namespace
@@ -24,7 +24,11 @@ class IRCBot(irc.IRCClient):
         self._handle_hooks('on_user_joined', user, channel)
 
     def privmsg(self, user, channel, msg):
-        """Handle incomming messages. If starting with a prefix, check for matching command and run!"""
+        """Handle incomming messages.
+        
+        If starting with a prefix, check for matching command and run!
+        
+        """
 
         self._handle_hooks('on_privmsg', user, channel, msg)
 
@@ -40,7 +44,8 @@ class IRCBot(irc.IRCClient):
             elif cmd in self.factory._commands:
                 try:
                     plugin, trigger = self.factory._commands[cmd]
-                    plugin.__dict__[trigger](plugin, self, user, channel, args)
+                    # Defer command to threads
+                    threads.deferToThread(plugin.__dict__[trigger], plugin, self, user, channel, args)
                 except Exception, e:
                     print e
 
@@ -50,7 +55,8 @@ class IRCBot(irc.IRCClient):
         if hook in self.factory._hooks:
             for plugin in self.factory._hooks[hook]:
                 try:
-                    plugin.__dict__[hook](plugin, self, *args)
+                    # Defer hooks to threads
+                    threads.deferToThread(plugin.__dict__[hook], plugin, self, *args)
                 except Exception, e:
                     print e
 
