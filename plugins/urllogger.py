@@ -1,4 +1,4 @@
-import datetime, re
+import datetime, re, random
 from mongoengine import *
 
 from utils import base
@@ -45,3 +45,18 @@ class URLLog(base.Plugin):
                 u.counter += 1
 
                 u.save()
+
+class RandomURL(base.Command):
+
+    _plugin_name = 'random_url'
+
+    triggers = {
+        'fetch_url': ['random_url', 'rurl']
+    }
+
+    def fetch_url(self, irc, user, channel, args):
+        u = URLLogModel.objects.all()
+
+        u = u[random.randint(0, u.count()-1)]
+
+        irc.msg(channel, '{} first posted {} ago by {} (Times posted: {})'.format(u.url, timesince(u.first_post), u.first_nick, u.counter))
