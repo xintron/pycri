@@ -29,7 +29,6 @@ class URLLog(base.Plugin):
 
         m = re.findall('(https?://[^\s$]+)+', msg)
         if m:
-            print 'woot'
             for url in m:
                 u, created = URLLogModel.objects.get_or_create(url = url)
 
