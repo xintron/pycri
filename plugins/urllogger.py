@@ -1,7 +1,8 @@
-import datetime, re
+import datetime, re, random
 from mongoengine import *
 
 from utils import base
+from utils.timesince import timesince
 
 class URLLogModel(Document):
 
@@ -29,7 +30,6 @@ class URLLog(base.Plugin):
 
         m = re.findall('(https?://[^\s$]+)+', msg)
         if m:
-            print 'woot'
             for url in m:
                 u, created = URLLogModel.objects.get_or_create(url = url)
 
@@ -40,13 +40,23 @@ class URLLog(base.Plugin):
                 u.last_post = datetime.datetime.now()
 
                 if u.counter > 0:
-                    irc.msg(channel, '.OLD {}. This url has been posted before on {} by {} (Times posted: {})'.format(
-                        user,
-                        '{} {} {} at {}:{}'.format(u.first_post.day, u.first_post.strftime('%b'), u.first_post.year, u.first_post.hour, u.first_post.minute),
-                        u.first_nick,
-                        u.counter
-                    ))
+                    irc.msg(channel, '.OLD! This url was first posted {} ago by {} (Times posted: {})'.format(timesince(u.first_post), u.first_nick, u.counter))
 
                 u.counter += 1
 
                 u.save()
+
+class RandomURL(base.Command):
+
+    _plugin_name = 'random_url'
+
+    triggers = {
+        'fetch_url': ['random_url', 'rurl']
+    }
+
+    def fetch_url(self, irc, user, channel, args):
+        u = URLLogModel.objects.all()
+
+        u = u[random.randint(0, u.count()-1)]
+
+        irc.msg(channel, '{} first posted {} ago by {} (Times posted: {})'.format(u.url, timesince(u.first_post), u.first_nick, u.counter))
