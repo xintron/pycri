@@ -56,7 +56,7 @@ class RandomURL(base.Command):
 
     def random_url(self, irc, user, channel, args):
         if len(args) > 0:
-            u = URLLogModel.objects(url__contais = args.pop(0))
+            u = URLLogModel.objects(url__contains = args.pop(0))
         else:
             u = URLLogModel.objects.all()
 
