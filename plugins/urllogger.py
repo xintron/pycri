@@ -51,11 +51,14 @@ class RandomURL(base.Command):
     _plugin_name = 'random_url'
 
     triggers = {
-        'fetch_url': ['random_url', 'rurl']
+        'random_url': ['random_url', 'rurl'],
     }
 
-    def fetch_url(self, irc, user, channel, args):
-        u = URLLogModel.objects.all()
+    def random_url(self, irc, user, channel, args):
+        if len(args) > 0:
+            u = URLLogModel.objects(url__contais = args.pop(0))
+        else:
+            u = URLLogModel.objects.all()
 
         u = u[random.randint(0, u.count()-1)]
 

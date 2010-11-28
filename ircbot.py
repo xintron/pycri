@@ -45,7 +45,9 @@ class IRCBot(irc.IRCClient):
                 try:
                     plugin, trigger = self.factory._commands[cmd]
                     # Defer command to threads
-                    threads.deferToThread(plugin.__dict__[trigger], plugin, self, user, channel, args)
+                    d = threads.deferToThread(plugin.__dict__[trigger], plugin, self, user, channel, args)
+                    d.addCallback(self._print_result)
+                    d.addErrback(self._print_error)
                 except Exception, e:
                     print e
 
@@ -56,9 +58,18 @@ class IRCBot(irc.IRCClient):
             for plugin in self.factory._hooks[hook]:
                 try:
                     # Defer hooks to threads
-                    threads.deferToThread(plugin.__dict__[hook], plugin, self, *args)
+                    d = threads.deferToThread(plugin.__dict__[hook], plugin, self, *args)
+                    d.addCallback(self._print_result)
+                    d.addErrback(self._print_error)
                 except Exception, e:
                     print e
+
+    def _print_error(self, msg):
+        print msg
+
+    def _print_result(self, msg):
+        if msg:
+            print msg
 
 
 class IRCBotFactory(protocol.ClientFactory):
