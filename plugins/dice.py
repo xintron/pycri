@@ -19,6 +19,6 @@ class Dice(Plugin):
         '''
 
         multiplier, sides = (int(x) for x in dice.split('d'))
-        result = random.choice(range(multiplier, multiplier * sides + 1))
+        result = random.choice(xrange(multiplier, multiplier * sides + 1))
 
         return result

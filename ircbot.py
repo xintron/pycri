@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-
-import sys, os
-from copy import copy
-
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol, threads
+from twisted.internet import reactor, protocol
 
 from plugins import Plugin
 import settings
+
 
 class IRCBot(irc.IRCClient):
 
@@ -19,7 +15,8 @@ class IRCBot(irc.IRCClient):
         self.join(self.factory.channel)
 
     def privmsg(self, user, channel, msg):
-        """Handle incomming messages.
+        """
+        Handle incoming privmsgs.
         
         If starting with a prefix, check for matching command and run!
         """
@@ -30,20 +27,15 @@ class IRCBot(irc.IRCClient):
             cmd = args.pop(0)
 
             # Search plugins for commands
-            module_method = Plugin.commands.get(cmd, None)
+            method = Plugin.commands.get(cmd, None)
 
-            if not module_method:
+            if not method:
                 return
 
-            module, method = module_method.split('.')
+            result = method(*args)
 
-            method = getattr(Plugin.library[module], method, None)
-
-            if method and callable(method):
-                result = method(*args)
-
-                if result:
-                    self.say(channel, result)
+            if result:
+                self.say(channel, result)
 
 
     def handleCommand(self, command, prefix, params):
@@ -68,7 +60,8 @@ class IRCBotFactory(protocol.ClientFactory):
         self.prefix = prefix
 
     def startFactory(self):
-        Plugin.autoload()
+        for plugin in settings.PLUGINS:
+            Plugin.load(plugin)
 
         protocol.ClientFactory.startFactory(self)
 

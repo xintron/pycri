@@ -1,4 +1,5 @@
 import imp
+import inspect
 
 import settings
 
@@ -12,22 +13,11 @@ class PluginLibrary(type):
 
         type.__init__(cls, name, bases, attrs)
 
-    def __repr__(cls):
-        cls.__name__
-
 
 class Plugin(object):
     __metaclass__ = PluginLibrary
 
     commands = {}
-
-    def __repr__(self):
-        return '{0}()'.format(self.__class__)
-
-    @classmethod
-    def autoload(cls):
-        for plugin in settings.PLUGINS:
-            cls.load(plugin)
 
     @classmethod
     def load(cls, name):
@@ -35,13 +25,38 @@ class Plugin(object):
 
         try:
             imp.load_module(name, fp, pathname, description)
+
+            # Collect the methods that's marked as commands
+            for name, obj in inspect.getmembers(cls.library[name]):
+                if not name.startswith('_') and inspect.ismethod(obj):
+                    if hasattr(obj, 'command'):
+                        commands = [obj.command] + obj.aliases
+
+                        for command in commands:
+                            cls.commands[command] = obj
+
         finally:
             if fp:
                 fp.close()
 
     @classmethod
-    def reload(cls, name):
+    def unload(cls, name):
+        plugin = cls.library[name]
+
+        commands_to_unload = []
+        for command, method in cls.commands.iteritems():
+            if method.im_self is plugin:
+                commands_to_unload.append(command)
+
+        for command in commands_to_unload:
+            del cls.commands[command]
+
         del cls.library[name]
+
+
+    @classmethod
+    def reload(cls, name):
+        cls.unload(name)
         cls.load(name)
 
 def command(func=None, name='', aliases=None):
@@ -49,12 +64,8 @@ def command(func=None, name='', aliases=None):
         aliases = []
 
     def decorator(func):
-        module_method = '%s.%s' % (func.__module__, func.__name__)
-
-        for alias in aliases:
-            Plugin.commands[alias] = module_method
-
-        Plugin.commands[name or func.__name__] = module_method
+        func.command = name or func.__name__
+        func.aliases = aliases
 
         return func
 
