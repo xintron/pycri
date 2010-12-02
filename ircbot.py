@@ -44,7 +44,7 @@ class IRCBot(irc.IRCClient):
 
             try:
                 if method:
-                    method(prefix, params)
+                    method(self, prefix, params)
             except:
                 pass
 
