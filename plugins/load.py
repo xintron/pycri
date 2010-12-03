@@ -11,7 +11,7 @@ class LoadPlugin(Plugin):
         Plugin.unload(name)
 
     @command
-    def reload(self, name):
+    def reload(self, name='all'):
         if name == 'all':
             for module in Plugin.library:
                 Plugin.reload(module)
