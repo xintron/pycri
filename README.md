@@ -20,7 +20,7 @@ Simple greeting plugin
                 channel, nick
             )
 
-            irc.say(channel, message)
+            irc.msg(channel, message)
 
 
 That's it! Now either add the module to the PLUGINS-list in settings.py or

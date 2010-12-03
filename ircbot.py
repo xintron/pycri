@@ -35,7 +35,7 @@ class IRCBot(irc.IRCClient):
             result = method(*args)
 
             if result:
-                self.say(channel, result)
+                self.msg(channel, result)
 
 
     def handleCommand(self, command, prefix, params):
