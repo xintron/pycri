@@ -1,3 +1,5 @@
+import inspect
+
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
 
@@ -30,6 +32,29 @@ class IRCBot(irc.IRCClient):
             method = Plugin.commands.get(cmd, None)
 
             if not method:
+                return
+
+            # Validate arguments
+            argspec = inspect.getargspec(method)
+
+            given_argument_count = len(args)
+            required_argument_count = len(argspec.args) - 1
+
+            if argspec.defaults:
+                required_argument_count -= len(argspec.defaults)
+
+            if given_argument_count < required_argument_count:
+                msg = '{0}{1} requires {2} argument{3} ({4}), but {5} was given.'.format(
+                    self.factory.prefix,
+                    cmd,
+                    required_argument_count,
+                    's' if required_argument_count != 1 else '',
+                    ', '.join(argspec.args[1:]),
+                    given_argument_count
+                )
+
+                self.msg(channel, msg)
+
                 return
 
             result = method(*args)
