@@ -13,6 +13,5 @@ NETWORK_USE_SSL = False
 DB_NAME = '' # Leave empty if not using the database (mongodb which requires mongoengine and pymongo)
 
 PLUGINS = (
-    'help',
-    'load',
+    'core',
 )
