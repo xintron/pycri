@@ -42,9 +42,11 @@ When all is told, we sum up thus -
 Do what you like, just don't sue us.
 
 """
+#!/usr/bin/env python
 
 __author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
 __version__ = 0.1
+
 
 import sys, socket
 
@@ -53,19 +55,11 @@ from twisted.internet import reactor
 from ircbot import IRCBotFactory
 import settings
 
-socket.setdefaulttimeout(15)
 
 if __name__ == '__main__':
+    socket.setdefaulttimeout(15)
+
     factory = IRCBotFactory(sys.argv[1], '!')
-
-    # Connect to the database
-    if settings.DB_NAME:
-        try:
-            from mongoengine import connect
-            connect(settings.DB_NAME)
-        except:
-            print 'Could not import mongoengine. Are you sure that mongoeninge (as well as pymongo) is installed and included in your python-path?'
-
 
     if settings.NETWORK_USE_SSL:
         from twisted.internet import ssl
