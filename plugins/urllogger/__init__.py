@@ -30,7 +30,10 @@ class URLLogger(Plugin):
                 u.last_post = datetime.datetime.now()
 
                 if u.counter > 0:
-                    irc.msg(channel, 'OLD! This url was first posted {} ago by {} (Times posted: {})'.format(timesince(u.first_post), u.first_nick, u.counter))
+                    if len(m) > 1:
+                        irc.msg(channel, 'OLD! This url was first posted {} ago by {} (Times posted: {}) [ {} ]'.format(timesince(u.first_post), u.first_nick, u.counter, u.url))
+                    else:
+                        irc.msg(channel, 'OLD! This url was first posted {} ago by {} (Times posted: {})'.format(timesince(u.first_post), u.first_nick, u.counter))
 
                 u.counter += 1
 

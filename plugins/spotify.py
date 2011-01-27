@@ -20,7 +20,7 @@ class Spotify(Plugin):
         channel = params[0]
         msg = params[-1]
 
-        m = re.match('(http://open\.spotify\.com/|spotify:)(album|artist|track)[:/]([^\s$]+)', msg)
+        m = re.search('(http://open\.spotify\.com/|spotify:)(album|artist|track)[:/]([^\s$]+)', msg)
 
         if not m:
             return
@@ -28,12 +28,18 @@ class Spotify(Plugin):
         data = self.call(uri)
         xml = tree.fromstring(data)
 
+        # TODO: Iterate through the xml-element instead of relying on the currently working xml-structure (ie. length does not always have the same placement in the xml-structure)
         if m.group(2) == 'album':
-            ret = "{0} [{1}] » {2}".format(xml[1][0].text, xml[0].text, uri)
+            ret = "» {0} [{1}] » {2}".format(xml[1][0].text, xml[0].text, uri)
         elif m.group(2) == 'track':
-            ret = "{0} - {1} [{2}] ({3}) » {4}".format(xml[1][0].text, xml[0].text, xml[2][0].text, self.timeconversion(float(xml[6].text)), uri)
+            # This is needed since the placement for the length-element varies.
+            length = 0
+            for e in xml.iter():
+                if e.tag.endswith('length'):
+                    length = e.text
+            ret = "» {0} - {1} [{2}] ({3}) » {4}".format(xml[1][0].text, xml[0].text, xml[2][0].text, self.timeconversion(float(length)), uri)
         elif m.group(2) == 'artist':
-            ret = "{0} » {1}".format(xml[0].text, uri)
+            ret = "» {0} » {1}".format(xml[0].text, uri)
 
         irc.msg(channel, ret)
 
