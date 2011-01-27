@@ -37,7 +37,9 @@ class Load(Plugin):
             if name == 'all':
                 for module in Plugin.library:
                     Plugin.reload(module)
+                return 'All plugins were successfully reloaded.'
             else:
                 Plugin.reload(name)
+                return '{0} were successfully reloaded.'.format(name)
         except KeyError:
             return 'No such plugin is currently loaded. Try !load {0}'.format(name)

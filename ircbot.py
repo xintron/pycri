@@ -65,7 +65,8 @@ class IRCBot(irc.IRCClient):
 
     def handleCommand(self, command, prefix, params):
         for module, plugin in Plugin.library.iteritems():
-            method = getattr(plugin, 'on_' + command.lower(), None)
+            for cls in plugin.itervalues(): # Iterate over all classes for given plugin
+                method = getattr(cls, 'on_' + command.lower(), None)
 
             try:
                 if method:

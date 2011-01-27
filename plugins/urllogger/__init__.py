@@ -39,6 +39,8 @@ class URLLogger(Plugin):
     @command(aliases=['rurl'])
     def random_url(self):
         u = URLLog.objects.all()
+        if not u:
+            return 'Something went wrong. There might not be any URLs logged.'
         u = u[random.randint(0, u.count() - 1)]
 
         msg = '{url} first posted {time} ago by {nick} (Times posted: {count})'.format(
@@ -48,4 +50,4 @@ class URLLogger(Plugin):
             count=u.counter
         )
 
-        irc.msg(channel, msg)
+        return msg

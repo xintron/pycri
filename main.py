@@ -45,7 +45,8 @@ Do what you like, just don't sue us.
 #!/usr/bin/env python
 
 __author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
-__version__ = 0.1
+__contributor__ = 'Marcus Fredriksson <drmegahertz@gmail.com>' # Rewrote the plugin handling system
+__version__ = 0.2
 
 
 import sys, socket

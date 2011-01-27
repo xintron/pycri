@@ -33,10 +33,11 @@ class Plugin(object):
         try:
             fp, pathname, description = imp.find_module(module_name, ['plugins'])
             imp.load_module(module_name, fp, pathname, description)
+        except ImportError:
+            raise
 
-        finally:
-            if fp:
-                fp.close()
+        if fp:
+            fp.close()
 
         plugins_to_instantiate = []
 
