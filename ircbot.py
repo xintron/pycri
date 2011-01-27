@@ -1,7 +1,7 @@
 import inspect, sys, traceback
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, threads
 
 from plugins import Plugin
 import settings
@@ -64,10 +64,12 @@ class IRCBot(irc.IRCClient):
 
                 return
 
-            result = method(*args)
+            def callback(result):
+                if result:
+                    self.msg(channel, result)
 
-            if result:
-                self.msg(channel, result)
+            d = threads.deferToThread(method, *args)
+            result = d.addCallback(callback)
 
 
     def handleCommand(self, command, prefix, params):
@@ -77,7 +79,7 @@ class IRCBot(irc.IRCClient):
 
             try:
                 if method:
-                    method(self, prefix, params)
+                    threads.deferToThread(method, self, prefix, params)
             except:
                 exc_type, exc_value, exc_traceback = sys.exc_info()
                 traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout) # Print to console for debuging

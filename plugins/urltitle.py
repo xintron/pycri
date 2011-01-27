@@ -6,10 +6,13 @@ from mongoengine import connect
 import settings
 from plugins import Plugin, command
 from plugins.urllogger.models import URLLog
+from utils import filesize
 
 
 if settings.DB_NAME:
     connect(settings.DB_NAME)
+
+_ext = getattr(settings, 'URL_SIZE_EXTENSIONS', None)
 
 class URLTitle(Plugin):
 
@@ -43,15 +46,23 @@ class URLTitle(Plugin):
 
         return self.call(u.url, True)
 
-    def call(self, url, error=False):
-        data = urllib2.urlopen(url).read()
 
-        m = re.search('<title[^>]*>([^<]*)</title>', data)
-        if m:
-            title = m.group(1).strip().replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-            title = re.sub('[ ]{2,}', ' ', title)
-            
-            if title:
-                return '» {0} [ {1} ]'.format(title, url)
+    def call(self, url, error=False):
+        data = urllib2.urlopen(url)
+        info = data.info()
+
+        if info['content-type'].split('/', 1)[0] == 'text':
+            m = re.search('<title[^>]*>([^<]*)</title>', data.read())
+            if m:
+                title = m.group(1).strip().replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+                title = re.sub('[ ]{2,}', ' ', title)
+                
+                if title:
+                    return '» {0} [ {1} ]'.format(title, url)
+
+        elif _ext:
+            ext = url.rsplit('.', 1)[1]
+            if ext in _ext:
+                return '» Content-type: {0} [{1}]'.format(info['content-type'], filesize(info['content-length']))
 
         return 'Could not fetch title for {0}'.format(url) if error else ''

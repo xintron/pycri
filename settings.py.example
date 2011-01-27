@@ -12,6 +12,26 @@ NETWORK_USE_SSL = False
 # Database settings
 DB_NAME = '' # Leave empty if not using the database (mongodb which requires mongoengine and pymongo)
 
+# Fetch size for url-extensions that doesn't return a title
+URL_SIZE_EXTENSIONS = (
+    'jpg',
+    'png',
+    'gif',
+    'bmp',
+    'txt',
+    'xml',
+    'mp3',
+    'avi',
+    'psd',
+    'svg',
+    'exe',
+    'app',
+    'jar',
+    'gz',
+    'rar',
+    'zip',
+)
+
 PLUGINS = (
     'core',
 )
