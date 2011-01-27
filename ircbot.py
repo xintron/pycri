@@ -1,4 +1,4 @@
-import inspect
+import inspect, sys, traceback
 
 from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol
@@ -38,18 +38,25 @@ class IRCBot(irc.IRCClient):
             argspec = inspect.getargspec(method)
 
             given_argument_count = len(args)
-            required_argument_count = len(argspec.args) - 1
+            required_argument_count = required_static_argument_count = len(argspec.args) - 1
 
             if argspec.defaults:
-                required_argument_count -= len(argspec.defaults)
+                required_static_argument_count -= len(argspec.defaults)
 
-            if given_argument_count < required_argument_count:
-                msg = '{0}{1} requires {2} argument{3} ({4}), but {5} was given.'.format(
+            if given_argument_count < required_static_argument_count or (given_argument_count > required_argument_count and not argspec.varargs):
+                diff = required_argument_count + 1
+                if argspec.defaults:
+                    diff -= len(argspec.defaults)
+                    defaults = ['{}={}'.format(x, argspec.defaults[argspec.args.index(x)-diff]) for x in argspec.args[diff:]]
+
+                msg = '{0}{1} requires {2} argument{3}{4} ({5}{6}), but {7} was given.'.format(
                     self.factory.prefix,
                     cmd,
-                    required_argument_count,
-                    's' if required_argument_count != 1 else '',
-                    ', '.join(argspec.args[1:]),
+                    required_static_argument_count,
+                    's' if required_static_argument_count != 1 else '',
+                    ' ({} optional)'.format(len(argspec.defaults)) if argspec.defaults else '',
+                    ', '.join(argspec.args[1:diff]), # Break if there are default values and print them next
+                    ', [{}]'.format(', '.join(defaults)) if argspec.defaults else '',
                     given_argument_count
                 )
 
@@ -72,6 +79,8 @@ class IRCBot(irc.IRCClient):
                 if method:
                     method(self, prefix, params)
             except:
+                exc_type, exc_value, exc_traceback = sys.exc_info()
+                traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout) # Print to console for debuging
                 pass
 
         irc.IRCClient.handleCommand(self, command, prefix, params)

@@ -5,7 +5,7 @@ from mongoengine import connect
 from models import URLLog
 from plugins import Plugin, command
 import settings
-from utils import timesince
+from utils.timeconversion import timesince
 
 
 if settings.DB_NAME:

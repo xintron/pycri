@@ -30,14 +30,12 @@ class Plugin(object):
         module_name, plugin_name = name.split('.') if '.' in name else (name, '')
 
         # Load module to register new Plugin subclasses
+        fp, pathname, description = imp.find_module(module_name, ['plugins'])
         try:
-            fp, pathname, description = imp.find_module(module_name, ['plugins'])
             imp.load_module(module_name, fp, pathname, description)
-        except ImportError:
-            raise
-
-        if fp:
-            fp.close()
+        finally:
+            if fp:
+                fp.close()
 
         plugins_to_instantiate = []
 

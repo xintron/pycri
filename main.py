@@ -46,7 +46,7 @@ Do what you like, just don't sue us.
 
 __author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
 __contributor__ = 'Marcus Fredriksson <drmegahertz@gmail.com>' # Rewrote the plugin handling system
-__version__ = 0.2
+__version__ = 0.2.1
 
 
 import sys, socket
