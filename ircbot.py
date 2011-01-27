@@ -25,7 +25,7 @@ class IRCBot(irc.IRCClient):
 
         # If prefixed, look for proper command and run plugin
         if msg.startswith(self.factory.prefix):
-            args = msg[1:].split(' ')
+            args = msg[1:].strip().split(' ')
             cmd = args.pop(0)
 
             # Search plugins for commands
