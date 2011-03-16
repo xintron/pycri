@@ -1,6 +1,6 @@
 import random
 
-from plugins import Plugin, command
+from pycri.plugins import Plugin, command
 
 
 class Dice(Plugin):

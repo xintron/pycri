@@ -1,4 +1,4 @@
-from plugins import Plugin, command
+from pycri.plugins import Plugin, command
 
 
 class Help(Plugin):
@@ -18,24 +18,29 @@ class Help(Plugin):
 
 class Load(Plugin):
     @command
-    def load(self, name):
+    def load(self, name, *plugins):
         '''Loads the specified plugin. Example: !load dice'''
         try:
-            Plugin.load(name)
+            Plugin.load(name, *plugins)
         except ImportError:
-            return 'No such plugin.'
-
+            return 'Could not load {0}'.format(name)
+        return '{0} was successfully loaded'.format(name)
     @command
-    def unload(self, name):
+    def unload(self, name, *plugins):
         '''Unloads the specified plugin. Example: !unload dice'''
-        Plugin.unload(name)
+        try:
+            Plugin.unload(name, *plugins)
+            return '{0} was successfully unloaded'.format(name)
+        except KeyError:
+            return 'No such plugin is currently loaded. Try !load {0}'.format(name)
 
     @command
     def reload(self, name='all'):
         '''Reloads the specified plugin. Example: !reload dice'''
         try:
             if name == 'all':
-                for module in Plugin.library:
+                keys = [x for x in Plugin.library.iterkeys()]
+                for module in keys:
                     Plugin.reload(module)
                 return 'All plugins were successfully reloaded.'
             else:

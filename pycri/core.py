@@ -1,16 +1,59 @@
-import inspect, sys, traceback
+# -*- coding: utf-8 -*-
+#!/usr/bin/env python
+"""
+Copyright (c) 2010-2011, Marcus Carlsson <carlsson.marcus@gmail.com>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+    * Neither the name of the author nor the names of other
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+"""
+
+__author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
+__contributor__ = 'Marcus Fredriksson <drmegahertz@gmail.com>' # Rewrote the plugin handling system
+__version__ = '0.3'
+
+import inspect, sys, traceback, socket
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol, threads
+from twisted.internet import reactor, protocol
 
-from plugins import Plugin
-import settings
+from pycri.plugins import Plugin
+from pycri.utils.encoding import smart_str
 
+try:
+    import settings
+except:
+    print 'You have to create a settings-file. Please take a look at the example settings.py shipped with this package.'
+    quit()
 
 class IRCBot(irc.IRCClient):
 
-    nickname = settings.NICKNAME
-    realname = settings.REALNAME
+    nickname = smart_str(settings.NICKNAME)
+    realname = smart_str(settings.REALNAME)
+    username = smart_str(settings.USERNAME)
 
     def signedOn(self):
         """Connection to the server made. Join channels."""
@@ -63,29 +106,23 @@ class IRCBot(irc.IRCClient):
                 self.msg(channel, msg)
 
                 return
-
-            def callback(result):
-                if result:
-                    self.msg(channel, result)
-
-            d = threads.deferToThread(method, *args)
-            result = d.addCallback(callback)
+            result = method(*args)
+            if result:
+                self.msg(channel, result)
 
 
     def handleCommand(self, command, prefix, params):
         for module, plugin in Plugin.library.iteritems():
             for cls in plugin.itervalues(): # Iterate over all classes for given plugin
                 method = getattr(cls, 'on_' + command.lower(), None)
-
-            try:
                 if method:
-                    threads.deferToThread(method, self, prefix, params)
-            except:
-                exc_type, exc_value, exc_traceback = sys.exc_info()
-                traceback.print_exception(exc_type, exc_value, exc_traceback, file=sys.stdout) # Print to console for debuging
-                pass
+                    method(self, prefix, params)
 
         irc.IRCClient.handleCommand(self, command, prefix, params)
+
+    def msg(self, channel, msg):
+        msg = smart_str(msg)
+        irc.IRCClient.msg(self, channel, msg)
 
     def _print_error(self, msg):
         print msg
@@ -115,3 +152,24 @@ class IRCBotFactory(protocol.ClientFactory):
     def clientConnectionFailed(self, connector, reason):
         print "connection failed: ", reason
         reactor.stop()
+
+
+def run(channel):
+    socket.setdefaulttimeout(15)
+
+    factory = IRCBotFactory(channel, '!')
+
+    if settings.NETWORK_USE_SSL:
+        try:
+            from twisted.internet import ssl
+        except ImportError:
+            try:
+                from OpenSSL import ssl
+            except ImportError:
+                print 'Please install the OpenSSL-package (pyOpenSSL) if you need SSL-connections'
+                quit()
+        reactor.connectSSL(settings.NETWORK_ADDR, settings.NETWORK_PORT, factory, ssl.ClientContextFactory())
+    else:
+        reactor.connectTCP(settings.NETWORK_ADDR, settings.NETWORK_PORT, factory)
+
+    reactor.run()

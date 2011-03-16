@@ -1,7 +1,6 @@
 import collections
-import imp
 import inspect
-
+import sys
 
 class PluginLibrary(type):
     def __init__(cls, name, bases, attrs):
@@ -26,23 +25,22 @@ class Plugin(object):
     library = collections.defaultdict(dict)
 
     @classmethod
-    def load(cls, name):
-        module_name, plugin_name = name.split('.') if '.' in name else (name, '')
+    def load(cls, module_name, *plugin_names):
 
         # Load module to register new Plugin subclasses
-        fp, pathname, description = imp.find_module(module_name, ['plugins'])
         try:
-            imp.load_module(module_name, fp, pathname, description)
-        finally:
-            if fp:
-                fp.close()
+            if sys.modules[module_name]:
+                reload(sys.modules[module_name])
+        except:
+            __import__(module_name)
 
         plugins_to_instantiate = []
 
-        if plugin_name:
+        if plugin_names:
             # Load specific plugin from module
-            plugin = cls.cache[module_name][plugin_name]
-            plugins_to_instantiate.append((plugin_name, plugin))
+            for plugin_name in plugin_names:
+                plugin = cls.cache[module_name][plugin_name]
+                plugins_to_instantiate.append((plugin_name, plugin))
 
         else:
             # Load all plugins in the module
@@ -63,17 +61,17 @@ class Plugin(object):
                                 cls.commands[command] = method
 
                 cls.library[module_name][name] = plugin_instance
+        return
 
     @classmethod
-    def unload(cls, name):
-        module_name, plugin_name = name.split('.') if '.' in name else (name, '')
+    def unload(cls, module_name, *plugin_names):
 
         # Collect commands to unload
         commands_to_unload = []
         for command, method in cls.commands.iteritems():
             unload = False
 
-            if plugin_name:
+            if plugin_names:
                 if method.im_self is cls.library[module_name][plugin_name]:
                     unload = True
             else:
@@ -88,18 +86,20 @@ class Plugin(object):
             del cls.commands[command]
 
         # Unload single plugin or the entire module
-        if plugin_name:
+        if plugin_names:
             del cls.cache[module_name][plugin_name]
             del cls.library[module_name][plugin_name]
 
         else:
             del cls.cache[module_name]
             del cls.library[module_name]
+        return
 
     @classmethod
     def reload(cls, name):
         cls.unload(name)
         cls.load(name)
+        return
 
 
 def command(func=None, name='', aliases=None):
