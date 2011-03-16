@@ -2,6 +2,7 @@
 
 # bot nickname
 NICKNAME = 'pycri'
+USERNAME = 'PyCri'
 REALNAME = 'pycri IRC bot'
 
 # Network settings
