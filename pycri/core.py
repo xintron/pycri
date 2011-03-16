@@ -31,10 +31,6 @@ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-__author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
-__contributor__ = 'Marcus Fredriksson <drmegahertz@gmail.com>' # Rewrote the plugin handling system
-__version__ = '0.3'
-
 import inspect, sys, traceback, socket
 
 from twisted.words.protocols import irc
