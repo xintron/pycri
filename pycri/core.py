@@ -112,7 +112,10 @@ class IRCBot(irc.IRCClient):
             for cls in plugin.itervalues(): # Iterate over all classes for given plugin
                 method = getattr(cls, 'on_' + command.lower(), None)
                 if method:
-                    method(self, prefix, params)
+                    try:
+                        method(self, prefix, params)
+                    except: # TODO: Log exceptions for debugging but for now just let the exceptions pass so that the bot doesn't reconnect
+                        pass
 
         irc.IRCClient.handleCommand(self, command, prefix, params)
 
