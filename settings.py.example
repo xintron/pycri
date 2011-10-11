@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
-# bot nickname
+# IRC settings
 NICKNAME = 'pycri'
 USERNAME = 'PyCri'
 REALNAME = 'pycri IRC bot'
+PASSWORD = ''
 
 # Network settings
 NETWORK_ADDR = 'example.com'

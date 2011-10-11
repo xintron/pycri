@@ -50,6 +50,7 @@ class IRCBot(irc.IRCClient):
     nickname = smart_str(settings.NICKNAME)
     realname = smart_str(settings.REALNAME)
     username = smart_str(settings.USERNAME)
+    password = smart_str(settings.PASSWORD)
 
     def signedOn(self):
         """Connection to the server made. Join channels."""
