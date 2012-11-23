@@ -1,4 +1,13 @@
 # -*- coding: utf-8 -*-
-__author__ = 'Marcus Carlsson <carlsson.marcus@gmail.com>'
-__contributor__ = 'Marcus Fredriksson <drmegahertz@gmail.com>' # Rewrote the plugin handling system
-__version__ = '0.3.05'
+"""
+    pycri
+    -----
+
+    A python IRC-bot based on twisted. It's easily extendable.
+
+    :copyright: (c) 2012 by Marcus Carlsson
+    :license: BSD, see LICENSE for more details
+"""
+__version__ = '0.4-dev'
+
+from .app import Pycri

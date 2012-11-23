@@ -1,7 +1,11 @@
-from pycri.plugins import Plugin, command
+from pycri.plugins import IRCObject, command
+from pycri.globals import g
+from pycri.signals import extension_setup, extension_teardown
+
+logger = g.getLogger('core-plugin')
 
 
-class Help(Plugin):
+class Help(IRCObject):
     @command
     def help(self, command):
         '''Displays a brief explanation of a given command. Example: !help help'''
@@ -16,20 +20,25 @@ class Help(Plugin):
         return command_documentation
 
 
-class Load(Plugin):
+class Load(IRCObject):
+
     @command
     def load(self, name, *plugins):
         '''Loads the specified plugin. Example: !load dice'''
         try:
-            Plugin.load(name, *plugins)
+            logger.debug('Loading {}'.format(name))
+            IRCObject.load(name, *plugins)
         except ImportError:
             return 'Could not load {0}'.format(name)
+        extension_setup.send(name)
         return '{0} was successfully loaded'.format(name)
     @command
     def unload(self, name, *plugins):
         '''Unloads the specified plugin. Example: !unload dice'''
         try:
-            Plugin.unload(name, *plugins)
+            logger.debug('Unloading {}'.format(name))
+            extension_teardown.send(name)
+            IRCObject.unload(name, *plugins)
             return '{0} was successfully unloaded'.format(name)
         except KeyError:
             return 'No such plugin is currently loaded. Try !load {0}'.format(name)
@@ -39,12 +48,14 @@ class Load(Plugin):
         '''Reloads the specified plugin. Example: !reload dice'''
         try:
             if name == 'all':
-                keys = [x for x in Plugin.library.iterkeys()]
+                keys = [x for x in IRCObject.library.iterkeys()]
+                logger.debug('Reloading all plugins')
                 for module in keys:
-                    Plugin.reload(module)
+                    IRCObject.reload(module)
                 return 'All plugins were successfully reloaded.'
             else:
-                Plugin.reload(name)
+                logger.debug('Reloading {}'.format(name))
+                IRCObject.reload(name)
                 return '{0} were successfully reloaded.'.format(name)
         except KeyError:
             return 'No such plugin is currently loaded. Try !load {0}'.format(name)

@@ -2,9 +2,15 @@ import collections
 import inspect
 import sys
 
-class PluginLibrary(type):
+def _module_name(name):
+    if name.startswith('pycri_'):
+        return 'pycri.ext.'+name.split('_', 2)[1]
+    if name.startswith('pycri'):
+        return name
+
+class IRCLibrary(type):
     def __init__(cls, name, bases, attrs):
-        module_name = cls.__module__.lower()
+        module_name = _module_name(cls.__module__.lower())
         class_name = name.lower()
 
         if not hasattr(cls, 'cache'):
@@ -18,16 +24,19 @@ class PluginLibrary(type):
         type.__init__(cls, name, bases, attrs)
 
 
-class Plugin(object):
-    __metaclass__ = PluginLibrary
+class IRCObject(object):
+    __metaclass__ = IRCLibrary
 
     commands = {}
     library = collections.defaultdict(dict)
 
     @classmethod
-    def load(cls, module_name, *plugin_names):
+    def load(cls, module_name):
+        module_name = _module_name(module_name)
+        if not module_name:
+            raise ImportError
 
-        # Load module to register new Plugin subclasses
+        # Load module to register new IRCObject subclasses
         try:
             if sys.modules[module_name]:
                 reload(sys.modules[module_name])
@@ -36,16 +45,9 @@ class Plugin(object):
 
         plugins_to_instantiate = []
 
-        if plugin_names:
-            # Load specific plugin from module
-            for plugin_name in plugin_names:
-                plugin = cls.cache[module_name][plugin_name]
-                plugins_to_instantiate.append((plugin_name, plugin))
-
-        else:
-            # Load all plugins in the module
-            for name, plugin in cls.cache[module_name].iteritems():
-                plugins_to_instantiate.append((name, plugin))
+        # Load all plugins in the module
+        for name, plugin in cls.cache[module_name].iteritems():
+            plugins_to_instantiate.append((name, plugin))
 
         # Instantiate plugins and collect commands
         for name, plugin in plugins_to_instantiate:
@@ -53,7 +55,8 @@ class Plugin(object):
                 plugin_instance = plugin()
 
                 for method_name, method in inspect.getmembers(plugin_instance):
-                    if not method_name.startswith('_') and inspect.ismethod(method):
+                    if not method_name.startswith('_') \
+                            and inspect.ismethod(method):
                         if hasattr(method, 'command'):
                             commands = [method.command] + method.aliases
 
@@ -61,39 +64,22 @@ class Plugin(object):
                                 cls.commands[command] = method
 
                 cls.library[module_name][name] = plugin_instance
-        return
 
     @classmethod
-    def unload(cls, module_name, *plugin_names):
+    def unload(cls, module_name):
 
         # Collect commands to unload
         commands_to_unload = []
         for command, method in cls.commands.iteritems():
-            unload = False
-
-            if plugin_names:
-                if method.im_self is cls.library[module_name][plugin_name]:
-                    unload = True
-            else:
-                if method.im_self in cls.library[module_name].values():
-                    unload = True
-
-            if unload:
+            if method.im_self in cls.library[module_name].values():
                 commands_to_unload.append(command)
 
         # Unload the commands
         for command in commands_to_unload:
             del cls.commands[command]
 
-        # Unload single plugin or the entire module
-        if plugin_names:
-            del cls.cache[module_name][plugin_name]
-            del cls.library[module_name][plugin_name]
-
-        else:
-            del cls.cache[module_name]
-            del cls.library[module_name]
-        return
+        del cls.cache[module_name]
+        del cls.library[module_name]
 
     @classmethod
     def reload(cls, name):

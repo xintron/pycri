@@ -1,49 +1,102 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python
 """
-Copyright (c) 2010-2011, Marcus Carlsson <carlsson.marcus@gmail.com>
-All rights reserved.
+pycri.app
+=====
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+This module implements the central IRC application object.
 
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
-    * Neither the name of the author nor the names of other
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+:copyright: (c) 2012 by Marcus Carlsson
+:license: BSD, see LICENSE for more details
 """
 
-import inspect, sys, traceback, socket
+import inspect
+import socket
+import sys
+import logging
 
 from twisted.words.protocols import irc
-from twisted.internet import reactor, protocol
+from twisted.internet import reactor, protocol, threads
+from twisted.python import log
 
-from pycri.plugins import Plugin
+from pycri.plugins import IRCObject
 from pycri.utils.encoding import smart_str
 
 try:
     import settings
 except:
     print 'You have to create a settings-file. Please take a look at the example settings.py shipped with this package.'
-    quit()
+    sys.exit(1)
+
+class Pycri(object):
+    """The Pycri object implements a application and acts as the central
+    object. Once it is created it will act as a central registry for the
+    connection(s), configuration and much more.
+
+    The first parameter should be the name of the module or package of the
+    application. The name of the application is used to resolve resources from
+    inside the module or the folder the module is contained in. Usually you
+    want to create a :class:`Pycri` instance in your main module or in the
+    `__init__.py` file of your package like so::
+
+        from pycri import Pycri
+        app = Pycri(__name__)
+
+    :param import_name: the name of the application package
+    """
+
+    def __init__(self, import_name):
+        reactor.app = self
+        self.import_name = import_name
+        self._logger = None
+        self.logger_name = import_name
+
+    @property
+    def logger(self):
+        """A :class:`logging.Logger` object for the root application."""
+        if self._logger and self._logger.name == self.logger_name:
+            return self._logger
+        self._logger = logging.getLogger(self.logger_name)
+        return self._logger
+
+    def getLogger(self, name):
+        """Convenient method for extensions to fetch a :class:`logging.Logger`
+        object for their extension instead of using the root application
+        name."""
+        return logging.getLogger(name)
+
+
+    def run(self, channel):
+        """Method for starting the application and opening the defined
+        connections."""
+        socket.setdefaulttimeout(15)
+
+        reactor.app = self
+
+        logging.basicConfig(level=logging.DEBUG, 
+            format="[%(asctime)s] %(name)s - %(levelname)s %(msg)s")
+        observer = log.PythonLoggingObserver()
+        observer.start()
+
+        self.factory = IRCBotFactory(channel, '!')
+
+        self.logger.info('Opening connection')
+        if settings.NETWORK_USE_SSL:
+            try:
+                from twisted.internet import ssl
+            except ImportError:
+                try:
+                    from OpenSSL import ssl
+                except ImportError:
+                    print 'Please install the OpenSSL-package (pyOpenSSL) if \
+                            you need SSL-connections'
+                    sys.exit(1)
+            reactor.connectSSL(settings.NETWORK_ADDR, settings.NETWORK_PORT,
+                    self.factory, ssl.ClientContextFactory())
+        else:
+            reactor.connectTCP(settings.NETWORK_ADDR, settings.NETWORK_PORT,
+                    self.factory)
+
+        reactor.run()
 
 class IRCBot(irc.IRCClient):
 
@@ -59,7 +112,7 @@ class IRCBot(irc.IRCClient):
     def privmsg(self, user, channel, msg):
         """
         Handle incoming privmsgs.
-        
+
         If starting with a prefix, check for matching command and run!
         """
 
@@ -69,7 +122,7 @@ class IRCBot(irc.IRCClient):
             cmd = args.pop(0)
 
             # Search plugins for commands
-            method = Plugin.commands.get(cmd, None)
+            method = IRCObject.commands.get(cmd, None)
 
             if not method:
                 return
@@ -103,18 +156,20 @@ class IRCBot(irc.IRCClient):
                 self.msg(channel, msg)
 
                 return
-            result = method(*args)
-            if result:
-                self.msg(channel, result)
+            def callback(result):
+                if result:
+                    self.msg(channel, result)
+            d = threads.deferToThread(method, *args)
+            d.addCallback(callback)
 
 
     def handleCommand(self, command, prefix, params):
-        for module, plugin in Plugin.library.iteritems():
+        for module, plugin in IRCObject.library.iteritems():
             for cls in plugin.itervalues(): # Iterate over all classes for given plugin
                 method = getattr(cls, 'on_' + command.lower(), None)
                 if method:
                     try:
-                        method(self, prefix, params)
+                        reactor.callFromThread(method, self, prefix, params)
                     except: # TODO: Log exceptions for debugging but for now just let the exceptions pass so that the bot doesn't reconnect
                         pass
 
@@ -142,7 +197,7 @@ class IRCBotFactory(protocol.ClientFactory):
 
     def startFactory(self):
         for plugin in settings.PLUGINS:
-            Plugin.load(plugin)
+            IRCObject.load(plugin)
 
         protocol.ClientFactory.startFactory(self)
 
@@ -154,22 +209,3 @@ class IRCBotFactory(protocol.ClientFactory):
         reactor.stop()
 
 
-def run(channel):
-    socket.setdefaulttimeout(15)
-
-    factory = IRCBotFactory(channel, '!')
-
-    if settings.NETWORK_USE_SSL:
-        try:
-            from twisted.internet import ssl
-        except ImportError:
-            try:
-                from OpenSSL import ssl
-            except ImportError:
-                print 'Please install the OpenSSL-package (pyOpenSSL) if you need SSL-connections'
-                quit()
-        reactor.connectSSL(settings.NETWORK_ADDR, settings.NETWORK_PORT, factory, ssl.ClientContextFactory())
-    else:
-        reactor.connectTCP(settings.NETWORK_ADDR, settings.NETWORK_PORT, factory)
-
-    reactor.run()
