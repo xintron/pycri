@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-pycri.app
-=====
+    pycri.app
+    =====
 
-This module implements the central IRC application object.
+    This module implements the central IRC application object.
 
-:copyright: (c) 2012 by Marcus Carlsson
-:license: BSD, see LICENSE for more details
+    :copyright: (c) 2012 by Marcus Carlsson
+    :license: BSD, see LICENSE for more details
 """
 
 import inspect
@@ -18,14 +18,9 @@ from twisted.words.protocols import irc
 from twisted.internet import reactor, protocol, threads
 from twisted.python import log
 
+from pycri import __version__
+from pycri.config import Config
 from pycri.plugins import IRCObject
-from pycri.utils.encoding import smart_str
-
-try:
-    import settings
-except:
-    print 'You have to create a settings-file. Please take a look at the example settings.py shipped with this package.'
-    sys.exit(1)
 
 class Pycri(object):
     """The Pycri object implements a application and acts as the central
@@ -44,11 +39,25 @@ class Pycri(object):
     :param import_name: the name of the application package
     """
 
+    default_config = {
+        'LOG_LEVEL': logging.WARN,
+        'NETWORK_ADDRESS': None,
+        'NETWORK_PORT': 6667,
+        'NETWORK_USE_SSL': False,
+        'NICKNAME': None,
+        'USERNAME': None,
+        'REALNAME': 'pycri IRC bot - https://github.com/xintron/pycri',
+        'PREFIX': '!',
+        'PLUGINS': ['pycri.plugins.core']
+    }
+
     def __init__(self, import_name):
         reactor.app = self
         self.import_name = import_name
         self._logger = None
         self.logger_name = import_name
+
+        self.config = Config(self.default_config)
 
     @property
     def logger(self):
@@ -64,50 +73,51 @@ class Pycri(object):
         name."""
         return logging.getLogger(name)
 
-
-    def run(self, channel):
+    def run(self):
         """Method for starting the application and opening the defined
         connections."""
         socket.setdefaulttimeout(15)
 
+        logging.basicConfig(level=self.config['LOG_LEVEL'], 
+            format="[%(asctime)s] %(name)s - %(levelname)s %(msg)s")
+
         reactor.app = self
 
-        logging.basicConfig(level=logging.DEBUG, 
-            format="[%(asctime)s] %(name)s - %(levelname)s %(msg)s")
         observer = log.PythonLoggingObserver()
         observer.start()
 
-        self.factory = IRCBotFactory(channel, '!')
+        self.factory = IRCBotFactory(self)
 
-        self.logger.info('Opening connection')
-        if settings.NETWORK_USE_SSL:
+        self.logger.info('Starting application')
+        if self.config['NETWORK_USE_SSL']:
             try:
                 from twisted.internet import ssl
             except ImportError:
                 try:
                     from OpenSSL import ssl
                 except ImportError:
-                    print 'Please install the OpenSSL-package (pyOpenSSL) if \
-                            you need SSL-connections'
+                    self.logger.critical('Please install the OpenSSL-package \
+                        (pyOpenSSL) if \ you need SSL-connection')
                     sys.exit(1)
-            reactor.connectSSL(settings.NETWORK_ADDR, settings.NETWORK_PORT,
+            reactor.connectSSL(self.config['NETWORK_ADDRESS'],
+                    self.config['NETWORK_PORT'],
                     self.factory, ssl.ClientContextFactory())
         else:
-            reactor.connectTCP(settings.NETWORK_ADDR, settings.NETWORK_PORT,
+            reactor.connectTCP(self.config['NETWORK_ADDRESS'],
+                    self.config['NETWORK_PORT'],
                     self.factory)
 
         reactor.run()
 
 class IRCBot(irc.IRCClient):
 
-    nickname = smart_str(settings.NICKNAME)
-    realname = smart_str(settings.REALNAME)
-    username = smart_str(settings.USERNAME)
-    password = smart_str(settings.PASSWORD)
+    versionName = 'pycri [https://github.com/xintron/pycri]'
+    versionNum = __version__
+    sourceURL = 'https://github.com/xintron/pycri'
 
     def signedOn(self):
         """Connection to the server made. Join channels."""
-        self.join(self.factory.channel)
+        self.join(self.factory.app.config['CHANNEL'])
 
     def privmsg(self, user, channel, msg):
         """
@@ -117,7 +127,7 @@ class IRCBot(irc.IRCClient):
         """
 
         # If prefixed, look for proper command and run plugin
-        if msg.startswith(self.factory.prefix):
+        if msg.startswith(self.factory.app.config['PREFIX']):
             args = msg[1:].strip().split(' ')
             cmd = args.pop(0)
 
@@ -143,7 +153,7 @@ class IRCBot(irc.IRCClient):
                     defaults = ['{}={}'.format(x, argspec.defaults[argspec.args.index(x)-diff]) for x in argspec.args[diff:]]
 
                 msg = '{0}{1} requires {2} argument{3}{4} ({5}{6}), but {7} was given.'.format(
-                    self.factory.prefix,
+                    self.factory.app.config['PREFIX'],
                     cmd,
                     required_static_argument_count,
                     's' if required_static_argument_count != 1 else '',
@@ -175,10 +185,6 @@ class IRCBot(irc.IRCClient):
 
         irc.IRCClient.handleCommand(self, command, prefix, params)
 
-    def msg(self, channel, msg):
-        msg = smart_str(msg)
-        irc.IRCClient.msg(self, channel, msg)
-
     def _print_error(self, msg):
         print msg
 
@@ -191,12 +197,15 @@ class IRCBotFactory(protocol.ClientFactory):
 
     protocol = IRCBot
 
-    def __init__(self, channel, prefix):
-        self.channel = channel
-        self.prefix = prefix
+    def __init__(self, app):
+        self.app = app
+        for attr in ['NICKNAME', 'PASSWORD', 'REALNAME', 'USERNAME']:
+            setattr(self.protocol, attr.lower(),
+                    self.app.config[attr])
+
 
     def startFactory(self):
-        for plugin in settings.PLUGINS:
+        for plugin in self.app.config['PLUGINS']:
             IRCObject.load(plugin)
 
         protocol.ClientFactory.startFactory(self)
@@ -205,7 +214,7 @@ class IRCBotFactory(protocol.ClientFactory):
         connector.connect()
 
     def clientConnectionFailed(self, connector, reason):
-        print "connection failed: ", reason
+        self.app.logger.exception('connection failed')
         reactor.stop()
 
 

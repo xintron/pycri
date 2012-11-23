@@ -7,11 +7,9 @@ SSL-connections.
 """
 from setuptools import setup
 
-from pycri import __version__ as version
-
 setup(
     name='pycri',
-    version=version,
+    version='0.4-dev',
     description='IRC-bot',
     long_description=__doc__,
     author='Marcus Carlsson',
