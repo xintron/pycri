@@ -15,7 +15,7 @@ setup(
     author='Marcus Carlsson',
     author_email='carlsson.marcus@gmail.com',
     url='https://github.com/xintron/pycri',
-    packages=['pycri', 'pycri.plugins', 'pycri.utils'],
+    packages=['pycri', 'pycri.ext', 'pycri.plugins', 'pycri.utils'],
     include_package_data=True,
     zip_safe=False,
     platforms='any',
