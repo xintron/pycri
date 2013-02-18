@@ -22,6 +22,7 @@ from pycri import __version__
 from pycri.config import Config
 from pycri.plugins import IRCObject
 
+
 class Pycri(object):
     """The Pycri object implements a application and acts as the central
     object. Once it is created it will act as a central registry for the
@@ -44,11 +45,12 @@ class Pycri(object):
         'NETWORK_ADDRESS': None,
         'NETWORK_PORT': 6667,
         'NETWORK_USE_SSL': False,
-        'NICKNAME': None,
-        'USERNAME': None,
+        'NICKNAME': 'pycri',
+        'USERNAME': 'pycri',
         'REALNAME': 'pycri IRC bot - https://github.com/xintron/pycri',
+        'PASSWORD': None,
         'PREFIX': '!',
-        'PLUGINS': ['pycri.plugins.core']
+        'PLUGINS': ['pycri.plugins.core'],
     }
 
     def __init__(self, import_name):
@@ -78,7 +80,8 @@ class Pycri(object):
         connections."""
         socket.setdefaulttimeout(15)
 
-        logging.basicConfig(level=self.config['LOG_LEVEL'], 
+        logging.basicConfig(
+            level=self.config['LOG_LEVEL'],
             format="[%(asctime)s] %(name)s - %(levelname)s %(msg)s")
 
         reactor.app = self
@@ -119,6 +122,10 @@ class IRCBot(irc.IRCClient):
         """Connection to the server made. Join channels."""
         self.join(self.factory.app.config['CHANNEL'])
 
+    def join(self, channel, key=None):
+        self.factory.app.logger.info('Joining {0}'.format(channel))
+        irc.IRCClient.join(self, channel, key)
+
     def privmsg(self, user, channel, msg):
         """
         Handle incoming privmsgs.
@@ -133,64 +140,86 @@ class IRCBot(irc.IRCClient):
 
             # Search plugins for commands
             method = IRCObject.commands.get(cmd, None)
-
             if not method:
                 return
 
-            # Validate arguments
-            argspec = inspect.getargspec(method)
+            if method.inspect:
 
-            given_argument_count = len(args)
-            required_argument_count = required_static_argument_count = len(argspec.args) - 1
+                # Validate arguments
+                argspec = inspect.getargspec(method)
 
-            if argspec.defaults:
-                required_static_argument_count -= len(argspec.defaults)
+                given_argument_count = len(args)
+                required_argument_count = required_static_argument_count =\
+                    len(argspec.args) - 1
 
-            if given_argument_count < required_static_argument_count or (given_argument_count > required_argument_count and not argspec.varargs):
-                diff = required_argument_count + 1
                 if argspec.defaults:
-                    diff -= len(argspec.defaults)
-                    defaults = ['{}={}'.format(x, argspec.defaults[argspec.args.index(x)-diff]) for x in argspec.args[diff:]]
+                    required_static_argument_count -= len(argspec.defaults)
 
-                msg = '{0}{1} requires {2} argument{3}{4} ({5}{6}), but {7} was given.'.format(
-                    self.factory.app.config['PREFIX'],
-                    cmd,
-                    required_static_argument_count,
-                    's' if required_static_argument_count != 1 else '',
-                    ' ({} optional)'.format(len(argspec.defaults)) if argspec.defaults else '',
-                    ', '.join(argspec.args[1:diff]), # Break if there are default values and print them next
-                    ', [{}]'.format(', '.join(defaults)) if argspec.defaults else '',
-                    given_argument_count
-                )
+                if given_argument_count < required_static_argument_count or\
+                        (given_argument_count > required_argument_count
+                            and not argspec.varargs):
+                    diff = required_argument_count + 1
+                    if argspec.defaults:
+                        diff -= len(argspec.defaults)
+                        defaults = [
+                            '{}={}'.format(
+                                x,
+                                argspec.defaults[argspec.args.index(x)-diff])
+                            for x in argspec.args[diff:]]
 
-                self.msg(channel, msg)
+                    msg = '{0}{1} requires {2} argument{3}{4} ({5}{6}), but \
+{7} was given.'.format(
+                        self.factory.app.config['PREFIX'],
+                        cmd,
+                        required_static_argument_count,
+                        's' if required_static_argument_count != 1 else '',
+                        ' ({} optional)'.format(
+                            len(argspec.defaults)) if argspec.defaults else '',
+                        # Break if there are default values and print them next
+                        ', '.join(argspec.args[1:diff]),
+                        ', [{}]'.format(
+                            ', '.join(defaults)) if argspec.defaults else '',
+                        given_argument_count
+                    )
 
-                return
+                    self.msg(channel, msg)
+
+                    return
+
             def callback(result):
                 if result:
                     self.msg(channel, result)
-            d = threads.deferToThread(method, *args)
+            irc = {'client': self, 'user': user, 'channel': channel,
+                   'msg': msg}
+            method.__self__.event = irc
+            if method.inspect:
+                d = threads.deferToThread(method, *args)
+            else:
+                d = threads.deferToThread(method)
             d.addCallback(callback)
-
 
     def handleCommand(self, command, prefix, params):
         for module, plugin in IRCObject.library.iteritems():
-            for cls in plugin.itervalues(): # Iterate over all classes for given plugin
+            # Iterate over all classes for given plugin
+            for cls in plugin.itervalues():
                 method = getattr(cls, 'on_' + command.lower(), None)
                 if method:
                     try:
                         reactor.callFromThread(method, self, prefix, params)
-                    except: # TODO: Log exceptions for debugging but for now just let the exceptions pass so that the bot doesn't reconnect
+                    except:
+                        # TODO: Log exceptions for debugging but for now just
+                        # let the exceptions pass so that the bot doesn't
+                        # reconnect
                         pass
 
         irc.IRCClient.handleCommand(self, command, prefix, params)
 
     def _print_error(self, msg):
-        print msg
+        print(msg)
 
     def _print_result(self, msg):
         if msg:
-            print msg
+            print(msg)
 
 
 class IRCBotFactory(protocol.ClientFactory):
@@ -202,7 +231,6 @@ class IRCBotFactory(protocol.ClientFactory):
         for attr in ['NICKNAME', 'PASSWORD', 'REALNAME', 'USERNAME']:
             setattr(self.protocol, attr.lower(),
                     self.app.config[attr])
-
 
     def startFactory(self):
         for plugin in self.app.config['PLUGINS']:
@@ -216,5 +244,3 @@ class IRCBotFactory(protocol.ClientFactory):
     def clientConnectionFailed(self, connector, reason):
         self.app.logger.exception('connection failed')
         reactor.stop()
-
-

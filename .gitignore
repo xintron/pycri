@@ -2,3 +2,10 @@
 *.pyc
 
 settings.py
+main.py
+settings.cfg
+
+build/
+docs/
+dist/
+pycri.egg-info/

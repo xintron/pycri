@@ -8,14 +8,16 @@ logger = g.getLogger('core-plugin')
 class Help(IRCObject):
     @command
     def help(self, command):
-        '''Displays a brief explanation of a given command. Example: !help help'''
+        """Displays a brief explanation of a given command. Example: !help help
+        """
         try:
             command_documentation = self.commands[command].__doc__
         except KeyError:
             return 'No such command.'
 
         if not command_documentation:
-            command_documentation = 'No documentation found for !{}.'.format(command)
+            command_documentation = 'No documentation found for !{}.'\
+                .format(command)
 
         return command_documentation
 
@@ -32,6 +34,7 @@ class Load(IRCObject):
             return 'Could not load {0}'.format(name)
         extension_setup.send(name)
         return '{0} was successfully loaded'.format(name)
+
     @command
     def unload(self, name, *plugins):
         '''Unloads the specified plugin. Example: !unload dice'''
@@ -41,7 +44,8 @@ class Load(IRCObject):
             IRCObject.unload(name, *plugins)
             return '{0} was successfully unloaded'.format(name)
         except KeyError:
-            return 'No such plugin is currently loaded. Try !load {0}'.format(name)
+            return 'No such plugin is currently loaded. Try !load {0}'\
+                .format(name)
 
     @command
     def reload(self, name='all'):
@@ -58,4 +62,13 @@ class Load(IRCObject):
                 IRCObject.reload(name)
                 return '{0} were successfully reloaded.'.format(name)
         except KeyError:
-            return 'No such plugin is currently loaded. Try !load {0}'.format(name)
+            return 'No such plugin is currently loaded. Try !load {0}'\
+                .format(name)
+
+    @command
+    def plugins(self, *args):
+        """Method for listing loaded plugins."""
+        loaded = []
+        for key in IRCObject.library.iterkeys():
+            loaded.append(key)
+        return ','.join(loaded)

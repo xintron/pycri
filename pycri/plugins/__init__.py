@@ -2,11 +2,13 @@ import collections
 import inspect
 import sys
 
+
 def _module_name(name):
     if name.startswith('pycri_'):
         return 'pycri.ext.'+name.split('_', 2)[1]
     if name.startswith('pycri'):
         return name
+
 
 class IRCLibrary(type):
     def __init__(cls, name, bases, attrs):
@@ -29,6 +31,15 @@ class IRCObject(object):
 
     commands = {}
     library = collections.defaultdict(dict)
+
+    def _set_event(self, event):
+        """Setter for command events."""
+        self._event = event
+
+    def _get_event(self):
+        return self._event
+
+    event = property(_get_event, _set_event)
 
     @classmethod
     def load(cls, module_name):
@@ -88,14 +99,14 @@ class IRCObject(object):
         return
 
 
-def command(func=None, name='', aliases=None):
+def command(func=None, name='', aliases=None, inspect=True):
     if aliases is None:
         aliases = []
+    inspect = bool(inspect)
 
     def decorator(func):
         func.command = name or func.__name__
         func.aliases = aliases
-
+        func.inspect = inspect
         return func
-
     return decorator(func) if func else decorator
